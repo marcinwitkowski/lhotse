@@ -7,6 +7,7 @@ from lhotse.cut import CutSet
 from lhotse.dataset.input_strategies import BatchIO, PrecomputedFeatures
 from lhotse.utils import ifnone
 
+
 class EmotionRecognitionDataset(torch.utils.data.Dataset):
     """
     The PyTorch Dataset for the emotion recognition task.
@@ -17,13 +18,14 @@ class EmotionRecognitionDataset(torch.utils.data.Dataset):
         {
             'inputs': (B x T x F) tensor
             'input_lens': (B,) tensor
-            'supervisions': (B x 1) dict with B-sized lists of emotion, speaker and gender 
+            'supervisions': (B x 1) dict with B-sized lists of emotion, speaker and gender
         }
     Dimension symbols legend:
     * ``B`` - batch size (number of Cuts)
     * ``T`` - number of frames of the longest Cut
     * ``F`` - number of features
     """
+
     def __init__(
         self,
         cut_transforms: List[Callable[[CutSet], CutSet]] = None,
@@ -47,16 +49,15 @@ class EmotionRecognitionDataset(torch.utils.data.Dataset):
         self.input_transforms = ifnone(input_transforms, [])
         self.input_strategy = input_strategy
 
-
     def __getitem__(self, cuts: CutSet) -> Dict[str, Union[torch.Tensor, List[str]]]:
         validate(cuts)
         cuts = cuts.sort_by_duration()
-        
+
         for tfnm in self.cut_transforms:
             cuts = tfnm(cuts)
         inputs, inputs_len = self.input_strategy(cuts)
         supervision_intervals = self.input_strategy.supervision_intervals(cuts)
-        
+
         for tfnm in self.input_transforms:
             inputs = tfnm(inputs)
         batch = {
