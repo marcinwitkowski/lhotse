@@ -5,6 +5,9 @@ import numpy as np
 import warnings
 from lhotse.features.base import FeatureExtractor, register_extractor
 from lhotse.utils import is_module_available, Seconds, compute_num_frames
+from lhotse.features.base import store_feature_array, Features
+from lhotse.features.io import FeaturesWriter
+from lhotse.augmentation import AugmentFn
 
 
 @dataclass
@@ -109,16 +112,17 @@ class OpenSmileExtractor(FeatureExtractor):
     def frame_shift(self) -> Seconds:
         import opensmile
 
-        if (
-            self.is_lld_or_lld_de()
-            and self.feature_set in opensmile.FeatureSet.__members__.values()
-        ):
+        if self.feature_set not in opensmile.FeatureSet.__members__.values():
+            raise NotImplementedError(
+                f"frame_shift is not defined for non default feature set. Defined featureset: {self.config.feature_set}"
+            )
+        # if self.is_lld_or_lld_de():
+        else:
             # For all deafult opensmile configs frameshift is equal to 10 ms
             return 0.01
-        else:
-            raise NotImplementedError(
-                f"frame_shift is not defined for Functionals feature level or for non default feature set. Defined featureset: {self.config.feature_set}"
-            )
+        # else:
+        # For Functionals features this property should not be defined
+        # return 0
 
     def feature_dim(self, sampling_rate: int) -> int:
         return len(self.feature_names)
@@ -161,3 +165,46 @@ class OpenSmileExtractor(FeatureExtractor):
         elif diff < 0:
             feats = feats[:-diff, :]
         return feats
+
+    def extract_from_samples_and_store(
+        self,
+        samples: np.ndarray,
+        storage: FeaturesWriter,
+        sampling_rate: int,
+        offset: Seconds = 0,
+        channel: Optional[int] = None,
+        augment_fn: Optional[AugmentFn] = None,
+        features_validation: bool = False,
+    ) -> "Features":
+        """
+        This function overrrides and is almost identical to 
+        lhotse.features.base.FeatureExtractor.extract_from_samples_and_store(...).
+        The interface is exactly the same. In contrary to its origin, it sets 
+        frame_shift in the output manifest, based on the feature type.
+        """
+        from lhotse.qa import validate_features_array
+
+        if augment_fn is not None:
+            samples = augment_fn(samples, sampling_rate)
+        duration = round(samples.shape[1] / sampling_rate, ndigits=8)
+        feats = self.extract(samples=samples, sampling_rate=sampling_rate)
+        storage_key = store_feature_array(feats, storage=storage)
+        if self.is_lld_or_lld_de():
+            frame_shift = self.frame_shift
+        else:
+            frame_shift = duration
+        manifest = Features(
+            start=offset,
+            duration=duration,
+            type=self.name,
+            num_frames=feats.shape[0],
+            num_features=feats.shape[1],
+            frame_shift=frame_shift,
+            sampling_rate=sampling_rate,
+            channels=channel,
+            storage_type=storage.name,
+            storage_path=str(storage.storage_path),
+            storage_key=storage_key,
+        )
+        validate_features_array(manifest, feats_data=feats)
+        return manifest

@@ -243,22 +243,7 @@ def validate_supervision(
 def validate_features(
     f: Features, read_data: bool = False, feats_data: Optional[np.ndarray] = None
 ) -> None:
-    assert f.start >= 0, f"Features: start has to be greater than 0 (is {f.start})"
-    assert (
-        f.duration > 0
-    ), f"Features: duration has to be greater than 0 (is {f.duration})"
-    assert (
-        f.num_frames > 0
-    ), f"Features: num_frames has to be greater than 0 (is {f.num_frames})"
-    assert (
-        f.num_features > 0
-    ), f"Features: num_features has to be greater than 0 (is {f.num_features})"
-    assert (
-        f.sampling_rate > 0
-    ), f"Features: sampling_rate has to be greater than 0 (is {f.sampling_rate})"
-    assert (
-        f.frame_shift > 0
-    ), f"Features: frame_shift has to be greater than 0 (is {f.frame_shift})"
+    validate_features_array(f,read_data,feats_data)
     window_hop = round(f.frame_shift * f.sampling_rate, ndigits=12)
     assert float(int(window_hop)) == window_hop, (
         f"Features: frame_shift of {f.frame_shift} is incorrect because it is physically impossible; "
@@ -275,6 +260,29 @@ def validate_features(
         f"this relationship between duration, frame_shift and num_frames (use rounding up if needed - "
         f"see lhotse.utils.compute_num_frames)."
     )
+
+
+@register_validator
+def validate_features_array(
+    f: Features, read_data: bool = False, feats_data: Optional[np.ndarray] = None
+) -> None:
+    assert f.start >= 0, f"Features: start has to be greater than 0 (is {f.start})"
+    assert (
+        f.duration > 0
+    ), f"Features: duration has to be greater than 0 (is {f.duration})"
+    assert (
+        f.num_frames > 0
+    ), f"Features: num_frames has to be greater than 0 (is {f.num_frames})"
+    assert (
+        f.num_features > 0
+    ), f"Features: num_features has to be greater than 0 (is {f.num_features})"
+    assert (
+        f.sampling_rate > 0
+    ), f"Features: sampling_rate has to be greater than 0 (is {f.sampling_rate})"
+    assert (
+        f.frame_shift > 0
+    ), f"Features: frame_shift has to be greater than 0 (is {f.frame_shift})"
+   
     if read_data or feats_data is not None:
         if read_data:
             feats_data = f.load()

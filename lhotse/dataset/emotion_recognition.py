@@ -50,7 +50,7 @@ class EmotionRecognitionDataset(torch.utils.data.Dataset):
         self.input_strategy = input_strategy
 
     def __getitem__(self, cuts: CutSet) -> Dict[str, Union[torch.Tensor, List[str]]]:
-        validate(cuts)
+        #validate(cuts)
         cuts = cuts.sort_by_duration()
 
         for tfnm in self.cut_transforms:
