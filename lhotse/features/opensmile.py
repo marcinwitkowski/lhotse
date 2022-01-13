@@ -109,16 +109,14 @@ class OpenSmileExtractor(FeatureExtractor):
     def frame_shift(self) -> Seconds:
         import opensmile
 
-        if (
-            self.is_lld_or_lld_de()
-            and self.feature_set in opensmile.FeatureSet.__members__.values()
-        ):
-            # For all deafult opensmile configs frameshift is equal to 10 ms
-            return 0.01
-        else:
+        if self.feature_set not in opensmile.FeatureSet.__members__.values():
             raise NotImplementedError(
-                f"frame_shift is not defined for Functionals feature level or for non default feature set. Defined featureset: {self.config.feature_set}"
+              f"frame_shift is not defined for non default feature set. Defined featureset: {self.config.feature_set}"
             )
+        # if self.is_lld_or_lld_de():
+        else:
+        # For all deafult opensmile configs frameshift is equal to 10 ms
+            return 0.01
 
     def feature_dim(self, sampling_rate: int) -> int:
         return len(self.feature_names)
