@@ -108,23 +108,30 @@ def download_librispeech(
 
 def prepare_librispeech(
     corpus_dir: Pathlike,
+    trans_part: Optional[Pathlike] = None,
     dataset_parts: Union[str, Sequence[str]] = "auto",
     output_dir: Optional[Pathlike] = None,
     num_jobs: int = 1,
+    audio_ext:str='flac',
 ) -> Dict[str, Dict[str, Union[RecordingSet, SupervisionSet]]]:
     """
     Returns the manifests which consist of the Recordings and Supervisions.
     When all the manifests are available in the ``output_dir``, it will simply read and return them.
 
     :param corpus_dir: Pathlike, the path of the data dir.
+    :param trans_part: Pathlike, the part from which transcrptions should be taken.
     :param dataset_parts: string or sequence of strings representing dataset part names, e.g. 'train-clean-100', 'train-clean-5', 'dev-clean'.
         By default we will infer which parts are available in ``corpus_dir``.
     :param output_dir: Pathlike, the path where to write the manifests.
+    :param audio_ext: Extensions of audiofiles in the dataset.
     :return: a Dict whose key is the dataset part, and the value is Dicts with the keys 'audio' and 'supervisions'.
     """
     corpus_dir = Path(corpus_dir)
     assert corpus_dir.is_dir(), f"No such directory: {corpus_dir}"
 
+    trans_dir = Path(corpus_dir / trans_part)
+    assert trans_dir.is_dir(), f"No such directory: {trans_dir}"
+    
     if dataset_parts == "mini_librispeech":
         dataset_parts = set(MINI_LIBRISPEECH).intersection(
             path.name for path in corpus_dir.glob("*")
@@ -163,7 +170,7 @@ def prepare_librispeech(
             part_path = corpus_dir / part
             futures = []
             for trans_path in tqdm(
-                part_path.rglob("*.trans.txt"), desc="Distributing tasks", leave=False
+                trans_dir.rglob("*.trans.txt"), desc="Distributing tasks", leave=False
             ):
                 alignments = {}
                 ali_path = trans_path.parent / (
@@ -181,7 +188,7 @@ def prepare_librispeech(
                 with open(trans_path) as f:
                     for line in f:
                         futures.append(
-                            ex.submit(parse_utterance, part_path, line, alignments)
+                            ex.submit(parse_utterance, part_path, line, alignments, audio_ext)
                         )
 
             for future in tqdm(futures, desc="Processing", leave=False):
@@ -213,13 +220,14 @@ def parse_utterance(
     dataset_split_path: Path,
     line: str,
     alignments: Dict[str, List[AlignmentItem]],
+    audio_ext:str='flac',
 ) -> Optional[Tuple[Recording, SupervisionSegment]]:
     recording_id, text = line.strip().split(maxsplit=1)
     # Create the Recording first
     audio_path = (
         dataset_split_path
         / Path(recording_id.replace("-", "/")).parent
-        / f"{recording_id}.flac"
+        / f"{recording_id}.{audio_ext}"
     )
     if not audio_path.is_file():
         logging.warning(f"No such file: {audio_path}")
